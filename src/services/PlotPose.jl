@@ -9,17 +9,17 @@ Plot pose belief as contour information on visually sensible manifolds.
 Example:
 
 ```julia
-fg = generateCanonicalFG_Hexagonal()
-solveTree!(fg);
-plotPose(fg, :x6)
+fg = generateGraph_ZeroPose()
+initAll!(fg);
+plotPose(fg, :x0)
 ```
 
 Related
 
-[`plotSLAM2D`](@ref), [`plotSLAM2DPoses`](@ref), [`plotKDE`](@ref), `plotKDECircular`
+[`plotSLAM2D`](@ref), [`plotSLAM2DPoses`](@ref), [`plotBelief`](@ref), `plotKDECircular`
 """
-function plotPose(pt::Pose2,
-                  pp::Vector{BallTreeDensity},
+function plotPose(::IIF.InstanceType{Pose2},
+                  pp::AbstractVector{<:BallTreeDensity},
                   title="plotPose2";
                   levels=3,
                   c=nothing,
@@ -55,18 +55,14 @@ function plotPose(pt::Pose2,
   Gadfly.hstack(p1,p2)
 end
 
+plotPose(pt::IIF.InstanceType{Pose2}, bds::AbstractVector{<:ManifoldKernelDensity}, w...;kw...) = plotPose(pt, (s->s.belief).(bds), w...; kw...)
 
-function plotPose(pt::Pose2,
+function plotPose(pt::IIF.InstanceType{Pose2},
                   pp::Union{<:BallTreeDensity,<:ManifoldKernelDensity},
                   title="plotPose2";
-                  levels=3,
-                  c=nothing,
-                  axis=nothing,
-                  scale::Real=0.2,
-                  overlay=nothing,
-                  hdl=[]  )
+                  kw... )
   #
-  plotPose(pt, [pp;],title,levels=levels,c=c,axis=axis,scale=scale, overlay=overlay, hdl=hdl )
+  plotPose(pt, [pp;],title; kw... )
 end
 
 
@@ -132,9 +128,9 @@ function plotPose(fgl::AbstractDFG,
                   app::AbstractString="eog",
                   hdl=[]  )
   #
-  typ = getSolverData(getVariable(fgl, syms[1]), solveKey).softtype
+  typ = getSolverData(getVariable(fgl, syms[1]), solveKey).variableType
   pt = string(string.(syms)...)
-  getvertsgg = (sym) -> getKDE(getVariable(fgl, sym), solveKey)
+  getvertsgg = (sym) -> getBelief(getVariable(fgl, sym), solveKey)
   pl = plotPose(typ, getvertsgg.(syms), pt, levels=levels, c=c, axis=axis, scale=scale, hdl=hdl )
 
   if length(filepath) > 0

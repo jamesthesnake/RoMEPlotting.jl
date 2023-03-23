@@ -62,9 +62,6 @@ f5 = addFactor!(fg,[:l1], pp2)
 
 # do inference
 tree = solveTree!(fg)
-# ensureAllInitialized!(fg)
-# tree = wipeBuildNewTree!(fg)
-# [inferOverTree!(fg, tree, N=N) for i in 1:2]
 
 println("test Pose2D plotting")
 
@@ -77,19 +74,19 @@ p1 = getBelief(fg, :l1)
 # p1= kde!(pts)
 p1c = getBelief(fg, :x0)
 
-plotKDE( p1 , dimLbls=["x";"y";"z"]) # |> PDF("/tmp/test.pdf")
+plotBelief( p1 , dimLbls=["x";"y";"z"]) # |> PDF("/tmp/test.pdf")
 
 
-plotKDE( [p1c;p1] , dimLbls=["x";"y";"z"],c=["red";"black"],levels=3, dims=[1;2])
-# plotKDE( [marginal(p1c,[1;2]);marginal(p1,[1;2])] , dimLbls=["x";"y";"z"],c=["red";"black"],levels=3, dims=[1;2])
+plotBelief( [p1c;p1] , dimLbls=["x";"y";"z"],c=["red";"black"],levels=3, dims=[1;2])
+# plotBelief( [marginal(p1c,[1;2]);marginal(p1,[1;2])] , dimLbls=["x";"y";"z"],c=["red";"black"],levels=3, dims=[1;2])
 p1c = deepcopy(p1)
 
-plotKDE( marginal(getBelief(getVariable(fg, :x2)),[1;2]) , dimLbls=["x";"y";"z"])
+plotBelief( marginal(getBelief(getVariable(fg, :x2)),[1;2]) , dimLbls=["x";"y";"z"])
 
 axis = [[1.5;3.5]';[-1.25;1.25]';[-1.0;1.0]']
 
 # @warn "Reinsert draw test.pdf"
-plotKDE( p1, dimLbls=["x";"y";"z"], axis=axis) |> PDF("/tmp/test.pdf",30cm,20cm)
+plotBelief( p1, dimLbls=["x";"y";"z"], axis=axis) |> PDF("/tmp/test.pdf",30cm,20cm)
 
 #
 Base.rm("/tmp/test.pdf")

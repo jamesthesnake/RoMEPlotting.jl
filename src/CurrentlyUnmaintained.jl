@@ -2,6 +2,94 @@
 
 
 
+function plotLsrScanFeats(br::Array{Float64,2})
+  Cart = zeros(size(br))
+  Cart[:,1] = br[:,2].*cos(br[:,1])
+  Cart[:,2] = br[:,2].*sin(br[:,1])
+  plot(x=Cart[:,1],y=Cart[:,2],Geom.point,
+  Guide.xticks(ticks=collect(-60:10:60)),
+  Guide.yticks(ticks=collect(0:10:80)))
+end
+
+function plotFeatTrackers(trkrs::Dict{Int64,Feature}, bfts::Array{Float64,2})
+  musX = Float64[]
+  varX = Float64[]
+  musY = Float64[]
+  varY = Float64[]
+  allPtsX = Float64[]
+  allPtsY = Float64[]
+
+  for ftr in trkrs
+    pts = getPoints(ftr[2].bel)
+    allPtsX = [allPtsX; vec(pts[1,:])]
+    allPtsY = [allPtsY; vec(pts[2,:])]
+
+    push!(musX, Statistics.mean(vec(pts[1,:])))
+    push!(varX, Statistics.std(vec(pts[1,:])))
+    push!(musY, Statistics.mean(vec(pts[2,:])))
+    push!(varY, Statistics.std(vec(pts[2,:])))
+  end
+
+  X = Float64[]
+  Y = Float64[]
+
+  if size(bfts,2) > 0
+    if bfts[1,1] != 0.0 && bfts[2,1] != 0.0 && bfts[3,1] != 0.0
+      for i in 1:size(bfts,2)
+          u, R = p2c(vec(bfts[:,i]))
+          push!(X, u[1])
+          push!(Y, u[2])
+      end
+    end
+  end
+
+  # Guide.yticks(ticks=collect(-60:10:60)),
+  # Guide.xticks(ticks=collect(0:10:80))
+  p = plot(layer(x=musX, y=musY, Geom.point, Theme(default_color=colorant"red")),
+  layer(x=allPtsX, y=allPtsY, Geom.histogram2d),
+  Guide.yticks(ticks=collect(-70:10:70)),
+  Guide.xticks(ticks=collect(-40:10:80)))
+  for i in 1:length(X)
+    push!(p.layers, Gadfly.layer(x=[0.0;X[i]], y=[0.0;Y[i]], Geom.line, Gadfly.Theme(default_color=colorant"magenta"))[1])
+  end
+  p
+end
+
+
+function saveImgSeq(d::Dict{Int64,Array{Float64,2}}; from::Int=1,to::Int=10,step::Int=1)
+  for i in from:step:to
+    p = plotLsrScanFeats([d[i][2,:];d[i][1,:]]') #lsrBR(d[i]));
+    Gadfly.draw(PNG(string("imgs/img",i,".png"),25cm,25cm),p)
+  end
+  nothing
+end
+
+
+
+"""
+    $SIGNATURES
+
+Plot trajectory of Array{,2} with rows as consecutive entries and columns as x,y,theta.
+"""
+function plotTrajectoryArrayPose2(arr::AbstractMatrix__{<:Real};
+                                  spscale::Real=0.5,
+                                  triadStride::Int=50)
+  #
+  @assert size(arr,2)==3
+  trajPlt = Gadfly.plot(x=arr[:,1], y=arr[:,2], Geom.path, Coord.cartesian(fixed=true, aspect_ratio=1))
+
+  if triadStride != -1
+    Xpp = arr[1:triadStride:end,1]
+    Ypp = arr[1:triadStride:end,2]
+    Thpp = arr[1:triadStride:end,3]
+    addXYLineLayers!(trajPlt, Xpp, Ypp, Thpp, l=spscale)
+  end
+  return trajPlt
+end
+
+
+
+
 
 # Victoria Park Plotting functions
 
@@ -173,7 +261,7 @@ function plotTrailingPoses(fg::AbstractDFG,
                            scale::Real=0.2,
                            circlen::Int=5)
   #
-  plotTrailingPoses(Pose2(), map(x->getKDE(fg,x, solveKey),pp), scale=scale, title=title, circlen=circlen)
+  plotTrailingPoses(Pose2(), map(x->getBelief(fg,x, solveKey),pp), scale=scale, title=title, circlen=circlen)
 end
 
 # gg = (x)->plotTrailingPoses(fg, [Symbol("x$i") for i in (x+60):-5:x],circlen=3)
@@ -249,7 +337,7 @@ end
 
 
 function plotLbl(fgl::G, lbl::Symbol) where G <: AbstractDFG
-  plotKDE(getKDE(getVariable(fgl,lbl)))
+  plotKDE(getBelief(getVariable(fgl,lbl)))
 end
 drawLbl(fgl::G, lbl::T) where {G <: AbstractDFG, T <: AbstractString} = drawLbl(fgl, Symbol(lbl))
 
@@ -276,7 +364,7 @@ function plotFrontalDens( fg::AbstractDFG,
 
         for frid in cliq[2].attributes["data"].frontalIDs
             j+=1
-            p[j] = getKDE(getVariable(fg, frid)) # getKDE(fg.v[frid])
+            p[j] = getBelief(getVariable(fg, frid)) # getBelief(fg.v[frid])
             # p[j] = kde!(fg.v[frid].attributes["val"])
 
             #pvals[j] = fg.v[frid].attributes["val"]
@@ -395,7 +483,7 @@ function asyncAnalyzeSolution(fgl::G, sym::Symbol) where G <: AbstractDFG
   lbl = string(sym)
   pp, arr, partials = IncrementalInference.localProduct(fgl, lbl)
   lpm = getKDEMax(pp)
-  em = getKDEMax(getKDE(getVariable(fgl,lbl)))
+  em = getKDEMax(getBelief(getVariable(fgl,lbl)))
   err1 = norm(lpm[1:2]-em[1:2])
   err2 = 0.0
   if lbl[1]=='x'
@@ -463,7 +551,7 @@ end
 function getAllFGsKDEs(fgD::Array{<: AbstractDFG,1}, vertsym::Symbol)
   ret = Array{BallTreeDensity,1}()
   for i in 1:length(fgD)
-    push!(ret, getKDE(getVariable(fgD[i],vertsym)) )
+    push!(ret, getBelief(getVariable(fgD[i],vertsym)) )
   end
   return ret
 end
@@ -612,7 +700,7 @@ end
 
 
 function plotPose2Vels(fgl::G, sym::Symbol; coord=nothing) where G <: AbstractDFG
-  X = getKDE(getVariable(fgl, sym))
+  X = getBelief(getVariable(fgl, sym))
   px = plotKDE(X, dims=[4], title="Velx")
   coord != nothing ? (px.coord = coord) : nothing
   py = plotKDE(X, dims=[5], title="Vely")
@@ -632,7 +720,7 @@ function plotProductVsKDE(fgl::G,
                           levels::Int=3,
                           c::Vector{String}=["red";"black"] ) where  G <: AbstractDFG
     #
-    plotKDE([IIF.localProduct(fgl, sym)[1], getKDE(getVariable(fgl, sym))], levels=3, c=c)
+    plotKDE([IIF.localProduct(fgl, sym)[1], getBelief(getVariable(fgl, sym))], levels=3, c=c)
 end
 
 
